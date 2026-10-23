@@ -1,0 +1,364 @@
+# =============================================================================
+# International Conference — Apache Configuration
+# =============================================================================
+# Place this file in the project root (same folder as index.php).
+# Requires: mod_rewrite, mod_headers, mod_deflate, mod_expires
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# 1. Default index files
+# -----------------------------------------------------------------------------
+
+DirectoryIndex index.php index.html
+
+
+# -----------------------------------------------------------------------------
+# 2. Canonical domain + Force HTTPS
+# -----------------------------------------------------------------------------
+
+<IfModule mod_rewrite.c>
+
+    RewriteEngine On
+
+    # Force official production hostname
+    RewriteCond %{HTTP_HOST} !^internationalconference\.info$ [NC]
+    RewriteRule ^ https://internationalconference.info%{REQUEST_URI} [R=301,L,NE]
+
+    # Force HTTPS
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+    RewriteRule ^ https://internationalconference.info%{REQUEST_URI} [R=301,L,NE]
+
+</IfModule>
+
+
+# -----------------------------------------------------------------------------
+# 3. Block sensitive files & folders
+# -----------------------------------------------------------------------------
+
+<Files "config.php">
+    Require all denied
+</Files>
+
+<Files "config.local.php">
+    Require all denied
+</Files>
+
+<Files "database.sql">
+    Require all denied
+</Files>
+
+<Files "cleanup.sql">
+    Require all denied
+</Files>
+
+<Files "README.md">
+    Require all denied
+</Files>
+
+<Files "CONVERSION_MAP.md">
+    Require all denied
+</Files>
+
+
+# Block sensitive directories
+
+RedirectMatch 403 ^/config(/.*)?$
+RedirectMatch 403 ^/includes(/.*)?$
+RedirectMatch 403 ^/install(/.*)?$
+RedirectMatch 403 ^/database(/.*)?$
+RedirectMatch 403 ^/\.git(/.*)?$
+RedirectMatch 403 ^/cache(/.*)?$
+
+
+# -----------------------------------------------------------------------------
+# 4. Custom error pages
+# -----------------------------------------------------------------------------
+
+ErrorDocument 404 /404.php
+ErrorDocument 403 /404.php
+ErrorDocument 500 /404.php
+
+
+# -----------------------------------------------------------------------------
+# 5. Clean URL routing
+# -----------------------------------------------------------------------------
+
+<IfModule mod_rewrite.c>
+
+    RewriteEngine On
+    RewriteBase /
+
+
+    # -------------------------------------------------------------------------
+    # Skip rewriting real files and directories
+    # -------------------------------------------------------------------------
+
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+
+    # -------------------------------------------------------------------------
+    # Public static pages
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^about-us/?$ about-us.php [L,QSA]
+    RewriteRule ^contact-us/?$ contact-us.php [L,QSA]
+    RewriteRule ^faq/?$ faq.php [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Feedback
+    # IMPORTANT: /feedback/all must come before /feedback
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^feedback/all/?$ feedback-all.php [L,QSA]
+    RewriteRule ^feedback/?$ feedback.php [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # General public pages
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^privacy-policy/?$ privacy-policy.php [L,QSA]
+    RewriteRule ^terms-of-service/?$ terms-of-service.php [L,QSA]
+
+    RewriteRule ^login/?$ login.php [L,QSA]
+    RewriteRule ^forgot-password/?$ forgot-password.php [L,QSA]
+    RewriteRule ^reset-password/([a-f0-9]{64})/?$ reset-password.php?token=$1 [L,QSA]
+
+    RewriteRule ^organizer-signup/?$ organizer-signup.php [L,QSA]
+
+    RewriteRule ^media-partner/?$ media-partner.php [L,QSA]
+    RewriteRule ^our-associates/?$ our-associates.php [L,QSA]
+
+    RewriteRule ^organizers/?$ organizers.php [L,QSA]
+
+    RewriteRule ^conferences/?$ conferences.php [L,QSA]
+
+    RewriteRule ^blog/?$ blog.php [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Blog post detail
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^blog/([a-z0-9-]+)/?$ blog-post.php?slug=$1 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Conference registration
+    # Must come BEFORE generic conference detail
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^conference/([a-z0-9-]+)/register/?$ redirect.php?slug=$1 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Conference detail
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^conference/([a-z0-9-]+)/?$ conference.php?slug=$1 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Organizer public profile
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^organizers/([a-z0-9-]+)/?$ organizer-public.php?slug=$1 [L,QSA]
+
+
+    # =========================================================================
+    # CONFERENCE SEO + CONFERENCE COMBINATION ROUTES
+    # =========================================================================
+
+
+    # -------------------------------------------------------------------------
+    # 4 SEGMENTS
+    #
+    # /conferences/country/city/topic/conference
+    #
+    # Example:
+    # /conferences/italy/milan/physical-and-life-sciences/conference-name
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^conferences/([a-z0-9-]+)/([a-z0-9-]+)/([a-z0-9-]+)/([a-z0-9-]+)/?$ conference-combination-router.php?r1=$1&r2=$2&r3=$3&r4=$4 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # 3 SEGMENTS
+    #
+    # Existing:
+    # /conferences/topic/country/city
+    #
+    # New:
+    # /conferences/country/topic/conference
+    # /conferences/country/city/conference
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^conferences/([a-z0-9-]+)/([a-z0-9-]+)/([a-z0-9-]+)/?$ conference-combination-router.php?r1=$1&r2=$2&r3=$3 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # 2 SEGMENTS
+    #
+    # Existing:
+    # /conferences/topic/country
+    # /conferences/country/city
+    #
+    # New:
+    # /conferences/country/conference
+    # /conferences/topic/conference
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^conferences/([a-z0-9-]+)/([a-z0-9-]+)/?$ conference-combination-router.php?r1=$1&r2=$2 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # 1 SEGMENT
+    #
+    # /conferences/topic
+    # /conferences/country
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^conferences/([a-z0-9-]+)/?$ conferences.php?seo1=$1 [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Organizer dashboard
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^organizer/?$ organizer/index.php [L,QSA]
+
+    RewriteRule ^organizer/([a-z0-9-]+)/?$ organizer/$1.php [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Admin dashboard
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^admin/?$ admin/index.php [L,QSA]
+
+    RewriteRule ^admin/([a-z0-9-]+)/?$ admin/$1.php [L,QSA]
+
+
+    # -------------------------------------------------------------------------
+    # Newsletter subscription
+    # -------------------------------------------------------------------------
+
+    RewriteRule ^subscribe/?$ subscribe.php [L,QSA]
+
+</IfModule>
+
+
+# -----------------------------------------------------------------------------
+# 6. Security headers
+# -----------------------------------------------------------------------------
+
+<IfModule mod_headers.c>
+
+    Header always set X-Content-Type-Options "nosniff"
+
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # HSTS disabled for now
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+</IfModule>
+
+
+# -----------------------------------------------------------------------------
+# 7. Gzip compression
+# -----------------------------------------------------------------------------
+
+<IfModule mod_deflate.c>
+
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/xml
+
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/atom+xml
+
+    AddOutputFilterByType DEFLATE image/svg+xml
+
+</IfModule>
+
+
+# -----------------------------------------------------------------------------
+# 8. Browser caching
+# -----------------------------------------------------------------------------
+
+<IfModule mod_expires.c>
+
+    ExpiresActive On
+
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+
+    ExpiresByType image/x-icon "access plus 1 year"
+
+    ExpiresByType text/css "access plus 1 month"
+
+    ExpiresByType application/javascript "access plus 1 month"
+
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+
+    ExpiresByType text/html "access plus 0 seconds"
+
+</IfModule>
+
+
+# -----------------------------------------------------------------------------
+# 9. Disable directory listing
+# -----------------------------------------------------------------------------
+
+Options -Indexes
+
+
+# -----------------------------------------------------------------------------
+# 10. Default UTF-8
+# -----------------------------------------------------------------------------
+
+AddDefaultCharset UTF-8
+
+
+# -----------------------------------------------------------------------------
+# 11. PHP limits
+# -----------------------------------------------------------------------------
+
+<IfModule mod_php.c>
+
+    php_value upload_max_filesize 4M
+    php_value post_max_size 8M
+
+    php_value max_execution_time 60
+
+    php_value memory_limit 128M
+
+</IfModule>
+
+
+# =============================================================================
+# End of .htaccess
+# =============================================================================

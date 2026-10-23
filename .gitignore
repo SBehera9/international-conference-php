@@ -1,0 +1,20 @@
+# Local secrets
+config/config.local.php
+
+# Local dev config if any
+*.local.php
+
+# Uploads — user content, not source
+uploads/
+
+# Cache
+cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
